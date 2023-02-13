@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="0f63801d-1fb9-40eb-b09f-a67029a36b1a" >
+		<db:my-sql-connection host="localhost" port="3306" user="root" password="Anibaltsegaye1967" database="craftshopping" />
+	</db:config>
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="1d40401a-d721-408f-8c0d-62b88f275c2c" queryTimeout="0" bulk-input-parameters="#[payload map (value,index)-&gt;{productID:value.productID}]" fetchSize="" errorMappings="" sql="delete from products where productID = :productID" target="" transactionalAction="JOIN_IF_POSSIBLE" maxRows="" config-ref="Database_Config" targetValue="#[payload]" queryTimeoutUnit="SECONDS">
+		<http:listener-connection host="0.0.0.0" port="8084" />
+	</http:listener-config>
+	<http:listener-config name="HTTP_Listener_config1" doc:name="HTTP Listener config" doc:id="c447f0e7-1c79-4e32-93af-7b050d79a0f2" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<http:listener-config name="HTTP_Listener_config2" doc:name="HTTP Listener config" doc:id="065c1c20-18eb-46b9-8aad-5fbeefb3f4cb" >
+		<http:listener-connection host="0.0.0.0" port="8083" />
+	</http:listener-config>
+	<flow name="onlineshoppingFlow" doc:id="40cda2cf-1c6e-44e6-97fb-e21620cc6a66" >
+		<http:listener doc:name="get.Products" doc:id="787d9cba-c1ac-4668-93ed-a9272d9b3a48" config-ref="HTTP_Listener_config" path="/get.Products"/>
+		<db:select doc:name="Select" doc:id="c891e350-9918-4533-b9e0-17be05ea8582" config-ref="Database_Config">
+			<db:sql ><![CDATA[select * from Products;]]></db:sql>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="3d63fc2c-51ae-47b9-bdc6-bd3259dc4e8f">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<set-payload value="Products table is selected" doc:name="Set Payload" doc:id="2baddf0a-e1b8-4737-a9d3-6f3c9a4c9131" />
+	</flow>
+	<flow name="single-insert" doc:id="db233e18-876e-4e4f-bc15-cb82cb10efaa" >
+		<http:listener doc:name="insertProducts" doc:id="a3e9616a-4af2-4f27-bafd-bd56e9d7ecdb" config-ref="HTTP_Listener_config" path="/insertProducts"/>
+		<db:insert doc:name="Insert" doc:id="6de1fe5b-bde5-4e11-8a80-f15bd93a9fb5" config-ref="Database_Config">
+			<db:sql ><![CDATA[insert into products (productID, CategoryID, Name, Description, Video_Uri, price) 
+values(:productID, :CategoryID, :Name, :Description, :Video_Uri, :price);]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{productID: payload.productID, CategoryID: payload.CategoryID, Name:payload.Name,  Description: payload.Description, Video_Uri: payload.Video_Uri, price:payload.price    }]]]></db:input-parameters>
+		</db:insert>
+		<set-payload value="Products table is inserted" doc:name="Set Payload" doc:id="d7b01372-5202-488e-bce8-0e10f396d375" />
+	</flow>
+	<flow name="single-update" doc:id="0ec54d6b-b7ab-4bb2-a740-61f22e50d368" >
+		<http:listener doc:name="Listener" doc:id="281bcc6e-b1f8-4bd2-8b65-ff19bcee07fe" config-ref="HTTP_Listener_config" path="/Productsupdate"/>
+		<db:update doc:name="Update" doc:id="7d85a1df-5a9c-4bdc-be51-bea6c415e5b5" config-ref="Database_Config">
+			<db:sql ><![CDATA[update Products set price = :price where productID = :productID]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{productID: attributes.queryParams.productID,
+	price: payload.price
+}]]]></db:input-parameters>
+		</db:update>
+		<set-payload value="products table is updated" doc:name="Set Payload" doc:id="2ae0dbe0-3711-42cd-a7ac-c2a2b3fe0e7f" />
+	</flow>
+	<flow name="single-delete" doc:id="9cf1fd9c-d38c-4150-a88e-5373a7c4a165" >
+		<http:listener doc:name="Listener" doc:id="4d667088-32fc-4439-ab5f-2258ef680945" config-ref="HTTP_Listener_config" path="/deleteProducts"/>
+		<db:delete doc:name="Delete" doc:id="61fdc868-d53a-4ff1-9acc-5d9ff07b38b7" config-ref="Database_Config">
+			<db:sql ><![CDATA[delete from Products where productID = :productID]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{productID: attributes.queryParams.productID }]]]></db:input-parameters>
+		</db:delete>
+		<set-payload value="Products table is deleted" doc:name="Set Payload" doc:id="2e925b03-d2af-4c4d-9e67-f944a6e52cb8" />
+	</flow>
+	<flow name="bulk-insert" doc:id="154faef7-575a-477c-afd0-1e8b0a1794a9" >
+		<http:listener doc:name="Listener" doc:id="1b53be82-e5cc-4db2-9aec-99ee65b543fe" config-ref="HTTP_Listener_config" path="/bulkinsert"/>
+		<logger level="INFO" doc:name="Logger" doc:id="01ebaed8-49be-4b2c-8480-f144fecf4a41" message="#[payload]" />
+		<db:bulk-insert doc:name="Bulk insert" doc:id="a07a852a-2cde-468a-acb4-58df08039605" config-ref="Database_Config">
+			<db:bulk-input-parameters ><![CDATA[#[payload map (value,index)->{productID:value.productID, CategoryID: value.CategoryID, Name:value.Name,  Description: value.Description,
+ Video_Uri:value.Video_Uri, price:value.price }]]]></db:bulk-input-parameters>
+			<db:sql ><![CDATA[insert into products (productID, CategoryID, Name, Description, Video_Uri, price) 
+values(:productID, :CategoryID, :Name, :Description, :Video_Uri, :price);]]></db:sql>
+		</db:bulk-insert>
+		<set-payload value='#["this bulk data is inserted"]' doc:name="Set Payload" doc:id="2f8d9736-9ebc-471f-b79d-bc4c35f2703d" />
+	</flow>
+	<flow name="bulk-update" doc:id="05ee8b2a-1c89-43c3-8819-dd9f18be5122" >
+		<http:listener doc:name="Listener" doc:id="0913098d-f57e-41da-9b41-deb72389f52a" config-ref="HTTP_Listener_config1" path="/bulk-update"/>
+		<db:bulk-update doc:name="Bulk update" doc:id="0ee19d60-a31b-4c1c-805c-9bb79776e46c" config-ref="Database_Config">
+			<db:bulk-input-parameters ><![CDATA[#[payload map (value,index)->{productID:value.productID, price:value.price }]]]></db:bulk-input-parameters>
+			<db:sql ><![CDATA[update Products set price = :price where productID = :productID]]></db:sql>
+		</db:bulk-update>
+		<set-payload value='#["bulk data is updated"]' doc:name="Set Payload" doc:id="90fd510a-cca3-4cdb-a726-a71de409e45e" />
+	</flow>
+	<flow name="bulk-delete" doc:id="a2f7f95a-b692-4bcd-9a0d-3d5accea49f0" >
+		<http:listener doc:name="Listener" doc:id="6189d8e7-b8a1-4f6d-8861-eda779326ba3" config-ref="HTTP_Listener_config2" path="/bulk-delete"/>
+		<db:bulk-delete doc:name="Bulk delete" doc:id="de90e79c-faf9-47da-914b-3394895f3929" config-ref="Database_Config">
+			<db:bulk-input-parameters ><![CDATA[#[payload map (value,index)->{productID:value.productID}]]]></db:bulk-input-parameters>
+			<db:sql ><![CDATA[delete from products where productID = :productID]]></db:sql>
+		</db:bulk-delete>
+		<set-payload value='#["bulk data is deleted"]' doc:name="Set Payload" doc:id="5ccdd168-ab4f-4b60-a8e4-b4d88505f0c9" />
+	</flow>
+</mule>
